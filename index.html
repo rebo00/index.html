@@ -1,1 +1,450 @@
+<!DOCTYPE html>
+<html lang="ckb" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>یاری دەبەی ئاو - سروشت</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
 
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            overflow: hidden;
+            position: relative;
+            background-color: #2bcbba;
+        }
+
+        #bgCanvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            object-fit: cover;
+        }
+
+        .header {
+            margin-top: 20px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 10px 25px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            z-index: 2;
+        }
+
+        .stats-info {
+            font-size: 16px;
+            font-weight: bold;
+            color: #013243;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+        }
+
+        .game-board {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 18px;
+            max-width: 95vw;
+            padding: 20px;
+            min-height: 280px;
+            z-index: 2;
+        }
+
+        .bottle {
+            width: 48px;
+            height: 175px;
+            background: rgba(255, 255, 255, 0.25);
+            border: 3px solid rgba(255, 255, 255, 0.9);
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            display: flex;
+            flex-direction: column-reverse;
+            overflow: hidden;
+            cursor: pointer;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            box-shadow: inset -4px 0 8px rgba(255, 255, 255, 0.6),
+                        inset 4px 0 8px rgba(0, 0, 0, 0.1),
+                        0 10px 20px rgba(0,0,0,0.2);
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.2s;
+            z-index: 2;
+        }
+
+        .bottle.selected {
+            transform: translateY(-20px) scale(1.05);
+            border-color: #f1c40f;
+            box-shadow: 0 15px 25px rgba(241, 196, 15, 0.4),
+                        inset -4px 0 8px rgba(255, 255, 255, 0.8);
+            z-index: 10;
+        }
+
+        .bottle.pour-to-left {
+            transform: translateY(-30px) rotate(-60deg) scale(1.05);
+            transition: transform 0.4s ease-in-out;
+            z-index: 20;
+        }
+
+        .bottle.pour-to-right {
+            transform: translateY(-30px) rotate(60deg) scale(1.05);
+            transition: transform 0.4s ease-in-out;
+            z-index: 20;
+        }
+
+        .liquid {
+            width: 100%;
+            height: 25%;
+            transition: height 0.3s ease-in-out;
+            position: relative;
+        }
+
+        .liquid::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .controls {
+            margin-bottom: 25px;
+            display: flex;
+            gap: 12px;
+            z-index: 2;
+        }
+
+        .btn {
+            padding: 10px 22px;
+            font-size: 15px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #20bf6b 0%, #0fb9b1 100%);
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(32, 191, 107, 0.4);
+            transition: transform 0.1s;
+        }
+
+        .btn:active { transform: scale(0.95); }
+
+        .modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: #fff;
+            color: #333;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transform: scale(0.8);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .modal.active .modal-content { transform: scale(1); }
+        .modal h2 { margin-top: 0; }
+    </style>
+</head>
+<body>
+
+    <canvas id="bgCanvas"></canvas>
+
+    <div class="header">
+        <div class="stats-info" id="levelDisplay">🌲 قۆناغ: ۱</div>
+        <div class="stats-info" id="movesDisplay">جوڵەکان: ۱۲/۱۲</div>
+    </div>
+
+    <div class="game-board" id="gameBoard"></div>
+
+    <div class="controls">
+        <button class="btn" onclick="undoMove()">پاشگەزبوونەوە ↩️</button>
+        <button class="btn" onclick="resetLevel()">دووبارەکردنەوە 🔄</button>
+    </div>
+
+    <div class="modal" id="gameModal">
+        <div class="modal-content">
+            <h2 id="modalTitle">🎉 پیرۆزە!</h2>
+            <p id="modalDesc">قۆناغەکەت بە سەرکەوتوویی بڕی!</p>
+            <button class="btn" id="modalBtn" onclick="nextLevel()">قۆناغی دواتر ➔</button>
+        </div>
+    </div>
+
+    <script>
+        function generateNatureBackground() {
+            const canvas = document.getElementById('bgCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            let skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.6);
+            skyGradient.addColorStop(0, '#74b9ff');
+            skyGradient.addColorStop(1, '#eccc68');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.beginPath();
+            ctx.arc(canvas.width * 0.8, canvas.height * 0.25, 45, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 242, 0, 0.85)';
+            ctx.shadowColor = '#f1c40f';
+            ctx.shadowBlur = 30;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = '#26de81';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height * 0.55);
+            ctx.quadraticCurveTo(canvas.width * 0.25, canvas.height * 0.35, canvas.width * 0.5, canvas.height * 0.55);
+            ctx.quadraticCurveTo(canvas.width * 0.75, canvas.height * 0.4, canvas.width, canvas.height * 0.55);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.fill();
+
+            let waterGradient = ctx.createLinearGradient(0, canvas.height * 0.55, 0, canvas.height);
+            waterGradient.addColorStop(0, '#2bcbba');
+            waterGradient.addColorStop(1, '#05c46b');
+            ctx.fillStyle = waterGradient;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height * 0.6);
+            ctx.quadraticCurveTo(canvas.width * 0.5, canvas.height * 0.52, canvas.width, canvas.height * 0.6);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.fill();
+        }
+
+        window.addEventListener('resize', generateNatureBackground);
+        generateNatureBackground();
+
+        const COLOR_PALETTE = [
+            '#e74c3c', '#3498db', '#2ecc71', 
+            '#f1c40f', '#9b59b6', '#e67e22', 
+            '#1abc9c', '#e84393'
+        ];
+
+        let currentLevel = 1;
+        let bottles = [];
+        let selectedBottleIndex = -1;
+        let moveHistory = [];
+        let maxMoves = 12;
+        let currentMoves = 0;
+        let isAnimating = false;
+
+        function playPourSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } catch(e){}
+        }
+
+        function startLevel(level) {
+            selectedBottleIndex = -1;
+            moveHistory = [];
+            isAnimating = false;
+
+            const numColors = Math.min(2 + (level - 1), COLOR_PALETTE.length);
+            const numBottles = numColors + 2; 
+
+            maxMoves = numColors * 5 + 2;
+            currentMoves = maxMoves;
+
+            document.getElementById('levelDisplay').innerText = '🌲 قۆناغ: ' + level;
+            document.getElementById('movesDisplay').innerText = `جوڵەکان: ${currentMoves}/${maxMoves}`;
+
+            let liquids = [];
+            for (let i = 0; i < numColors; i++) {
+                for (let j = 0; j < 4; j++) {
+                    liquids.push(COLOR_PALETTE[i]);
+                }
+            }
+
+            liquids.sort(() => Math.random() - 0.5);
+
+            bottles = Array.from({ length: numBottles }, () => []);
+
+            let liquidIdx = 0;
+            for (let i = 0; i < numColors; i++) {
+                for (let j = 0; j < 4; j++) {
+                    bottles[i].push(liquids[liquidIdx++]);
+                }
+            }
+
+            render();
+        }
+
+        function render() {
+            const container = document.getElementById('gameBoard');
+            container.innerHTML = '';
+
+            bottles.forEach((bottle, index) => {
+                const bottleDiv = document.createElement('div');
+                bottleDiv.id = 'bottle-' + index;
+                bottleDiv.className = 'bottle' + (selectedBottleIndex === index ? ' selected' : '');
+
+                bottle.forEach(color => {
+                    const liquid = document.createElement('div');
+                    liquid.className = 'liquid';
+                    liquid.style.backgroundColor = color;
+                    bottleDiv.appendChild(liquid);
+                });
+
+                bottleDiv.onclick = function() { handleBottleClick(index); };
+                container.appendChild(bottleDiv);
+            });
+        }
+
+        function handleBottleClick(index) {
+            if (isAnimating) return;
+
+            if (selectedBottleIndex === -1) {
+                if (bottles[index].length > 0) {
+                    selectedBottleIndex = index;
+                    render();
+                }
+            } else {
+                if (selectedBottleIndex === index) {
+                    selectedBottleIndex = -1;
+                    render();
+                } else {
+                    attemptTransfer(selectedBottleIndex, index);
+                }
+            }
+        }
+
+        function attemptTransfer(fromIndex, toIndex) {
+            const fromBottle = bottles[fromIndex];
+            const toBottle = bottles[toIndex];
+
+            if (fromBottle.length === 0 || toBottle.length >= 4) {
+                selectedBottleIndex = -1;
+                render();
+                return;
+            }
+
+            const colorToMove = fromBottle[fromBottle.length - 1];
+
+            if (toBottle.length === 0 || toBottle[toBottle.length - 1] === colorToMove) {
+                isAnimating = true;
+
+                const fromElem = document.getElementById('bottle-' + fromIndex);
+                
+                if (fromIndex > toIndex) {
+                    fromElem.classList.add('pour-to-left');
+                } else {
+                    fromElem.classList.add('pour-to-right');
+                }
+
+                playPourSound();
+
+                setTimeout(() => {
+                    moveHistory.push(JSON.stringify({
+                        bottles: bottles,
+                        moves: currentMoves
+                    }));
+
+                    toBottle.push(fromBottle.pop());
+                    currentMoves--;
+                    document.getElementById('movesDisplay').innerText = `جوڵەکان: ${currentMoves}/${maxMoves}`;
+
+                    selectedBottleIndex = -1;
+                    isAnimating = false;
+                    render();
+
+                    checkGameState();
+                }, 400);
+            } else {
+                selectedBottleIndex = -1;
+                render();
+            }
+        }
+
+        function undoMove() {
+            if (isAnimating || moveHistory.length === 0) return;
+            const lastState = JSON.parse(moveHistory.pop());
+            bottles = lastState.bottles;
+            currentMoves = lastState.moves;
+            document.getElementById('movesDisplay').innerText = `جوڵەکان: ${currentMoves}/${maxMoves}`;
+            selectedBottleIndex = -1;
+            render();
+        }
+
+        function checkGameState() {
+            const isWin = bottles.every(bottle => {
+                return bottle.length === 0 || (bottle.length === 4 && bottle.every(c => c === bottle[0]));
+            });
+
+            if (isWin) {
+                showModal('🎉 پیرۆزە!', 'قۆناغەکەت بە سەرکەوتوویی بڕی!', 'قۆناغی دواتر ➔', nextLevel);
+            } else if (currentMoves <= 0) {
+                showModal('💔 دۆڕایت!', 'هیچ هەنگاوێکی ترت نەماوە.', 'دووبارەکردنەوە 🔄', resetLevel);
+            }
+        }
+
+        function showModal(title, desc, btnText, action) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerText = desc;
+            const btn = document.getElementById('modalBtn');
+            btn.innerText = btnText;
+            btn.onclick = function() {
+                document.getElementById('gameModal').classList.remove('active');
+                action();
+            };
+            document.getElementById('gameModal').classList.add('active');
+        }
+
+        function nextLevel() {
+            currentLevel++;
+            startLevel(currentLevel);
+        }
+
+        function resetLevel() {
+            startLevel(currentLevel);
+        }
+
+        startLevel(currentLevel);
+    </script>
+</body>
+</html>
